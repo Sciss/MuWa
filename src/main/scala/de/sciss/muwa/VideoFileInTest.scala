@@ -65,7 +65,7 @@ object VideoFileInTest {
 //    val fIn     = file("/data/temp/bla3.h264")
 //    val tempOut = file("/data/temp/test-%d.jpg")
 
-    val g = Graph {
+    val gr = Graph {
       import graph._
       val in      = VideoFileIn(file = fIn, numChannels = 3)
       val sig     = in
@@ -80,7 +80,7 @@ object VideoFileInTest {
     cfg.useAsync   = false // for debugging
     val ctrl  = stream.Control(cfg)
 
-    ctrl.run(g)
+    ctrl.run(gr)
     println("Running...")
     Await.result(ctrl.status, Duration.Inf)
 
