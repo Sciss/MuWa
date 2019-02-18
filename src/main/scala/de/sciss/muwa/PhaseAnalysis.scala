@@ -31,7 +31,8 @@ object PhaseAnalysis {
                      height       : Int     = 540,
                      numFrames    : Int     = 10,
                      irDur        : Double  = 0.5,
-                     irSteps      : Int     = 25,
+                     inputStepDur : Double  = 0.02,
+                     irSteps      : Int     = 1, // 25,
                      sampleRate   : Double  = 48000.0
                    )
 
@@ -73,6 +74,10 @@ object PhaseAnalysis {
       opt[Double]('p', "impulse-len")
         .text(s"Length of impulses for convolution in seconds (default: ${default.irDur})")
         .action { (v, c) => c.copy(irDur = v) }
+
+      opt[Double]('l', "input-len")
+        .text(s"Length of input chunks for convolution in seconds (default: ${default.inputStepDur})")
+        .action { (v, c) => c.copy(inputStepDur = v) }
 
       opt[Int]('s', "impulse-step")
         .text(s"Interpolation steps for convolution of adjacent impulses (default: ${default.irSteps})")
@@ -197,9 +202,10 @@ object PhaseAnalysis {
         crr = +1, cri = +1, clr = 0, cli = 0,
         ccr = +1, cci = -1, car = 0, cai = 0)
 
-      val inputSz         = irFrames / irSteps
+//      val inputSz         = irFrames / irSteps
+      val inputSz         = (inputStepDur * sampleRate).toInt
       require (inputSz >= 1)
-      val irFrames1       = inputSz * irSteps
+      val irFrames1       = irFrames // inputSz * irSteps
       require (irFrames1 >= 1)
 
       val minPhaseLog2    = Complex1FFT(in = minPhaseCepF, size = irMinPhaseSz) * irMinPhaseSz
@@ -215,8 +221,6 @@ object PhaseAnalysis {
       Length(audioSigMin).poll(0, "audioSigMin.length")
 
       val irFFT0          = Real1FFT(audioSigMin, size = irFrames1, padding = convSizeFFT - irFrames1)
-      val irFFT1          = BufferMemory(irFFT0, convSizeFFT)
-      val irFFT2          = irFFT0.drop         (convSizeFFT)
       val audioIn         = AudioFileIn(file = fAudioIn, numChannels = 2)
 
       Length(audioIn).poll(0, "audioIn.length")
@@ -225,11 +229,18 @@ object PhaseAnalysis {
 
       Length(inputFFT).poll(0, "inputFFT.length")
 
-      val irFFT1Rep       = RepeatWindow(irFFT1, size = convSizeFFT, num = irSteps)
-      val irFFT2Rep       = RepeatWindow(irFFT2, size = convSizeFFT, num = irSteps)
-      val irFFTFadeW0     = (ArithmSeq(start = 0, step = 1) % irSteps) / irSteps
-      val irFFTFadeW      = RepeatWindow(irFFTFadeW0, num = convSizeFFT)
-      val irFFTFade       = irFFT1Rep * (-irFFTFadeW + (1.0: GE)) + irFFT2Rep * irFFTFadeW
+      val irFFTFade: GE = if (irSteps > 1) {
+        val irFFT1          = BufferMemory(irFFT0, convSizeFFT)
+        val irFFT2          = irFFT0.drop         (convSizeFFT)
+        val irFFT1Rep       = RepeatWindow(irFFT1, size = convSizeFFT, num = irSteps)
+        val irFFT2Rep       = RepeatWindow(irFFT2, size = convSizeFFT, num = irSteps)
+        val irFFTFadeW0     = (ArithmSeq(start = 0, step = 1) % irSteps) / irSteps
+        val irFFTFadeW      = RepeatWindow(irFFTFadeW0, num = convSizeFFT)
+        val _irFFTFade      = irFFT1Rep * (-irFFTFadeW + (1.0: GE)) + irFFT2Rep * irFFTFadeW
+        _irFFTFade
+      } else {
+        irFFT0
+      }
 
       Length(irFFTFade).poll(0, "irFFTFade.length")
 
