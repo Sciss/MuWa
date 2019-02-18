@@ -188,15 +188,7 @@ object PhaseAnalysis {
 //      val specAudioOut = AudioFileSpec(numChannels = 4,sampleRate = sampleRate)
 //      AudioFileOut(in = audioSig, file = fAudioOut, spec = specAudioOut)
 
-      val audioIn   = AudioFileIn(file = fAudioIn, numChannels = 2)
-
-      val irFrames  = (irDur * sampleRate).toInt
-//      val (irConvSz, inputSz)  = {
-//        val a   = (irFrames + 1).nextPowerOfTwo
-//        val b   = a << 1
-//        val a1  = a - irFrames + 1
-//        val b1  = b - irFrames + 1
-//      }
+      val irFrames        = (irDur * sampleRate).toInt
       val irMinPhaseSz    = (irFrames * 2 - 1).nextPowerOfTwo
       val minPhaseFFTIn   = Real1FullFFT(audioSig, size = irFrames, padding = irMinPhaseSz - irFrames)
       val minPhaseLog1    = minPhaseFFTIn.complex.log.max(-320)
@@ -205,13 +197,48 @@ object PhaseAnalysis {
         crr = +1, cri = +1, clr = 0, cli = 0,
         ccr = +1, cci = -1, car = 0, cai = 0)
 
+      val inputSz         = irFrames / irSteps
+      require (inputSz >= 1)
+      val irFrames1       = inputSz * irSteps
+      require (irFrames1 >= 1)
+
       val minPhaseLog2    = Complex1FFT(in = minPhaseCepF, size = irMinPhaseSz) * irMinPhaseSz
       val minPhaseFFTOut  = minPhaseLog2.complex.exp
-      val audioSigMin0    = Real1FullIFFT(in = minPhaseFFTOut, size = irMinPhaseSz)
-      val audioSigMin     = ResizeWindow(audioSigMin0, size = irMinPhaseSz, stop = -(irMinPhaseSz - irFrames))
+//      val audioSigMin0    = Real1FullIFFT(in = minPhaseFFTOut, size = irMinPhaseSz)
+      val audioSigMin     = Real1FullIFFT(in = minPhaseFFTOut, size = irFrames1, padding = irMinPhaseSz - irFrames1)
+//      val audioSigMin     = ResizeWindow(audioSigMin0, size = irMinPhaseSz, stop = -(irMinPhaseSz - irFrames1))
+      val convSizeTime    = inputSz + irFrames1 - 1
+      val convSizeFFT     = convSizeTime.nextPowerOfTwo
 
-      val specAudioOut = AudioFileSpec(numChannels = 4,sampleRate = sampleRate)
-      AudioFileOut(in = audioSigMin, file = fAudioOut, spec = specAudioOut)
+      println(s"irFrames $irFrames, irFrames1 $irFrames1, inputSz $inputSz, convSizeTime $convSizeTime, convSizeFFT $convSizeFFT")
+
+      Length(audioSigMin).poll(0, "audioSigMin.length")
+
+      val irFFT0          = Real1FFT(audioSigMin, size = irFrames1, padding = convSizeFFT - irFrames1)
+      val irFFT1          = BufferMemory(irFFT0, convSizeFFT)
+      val irFFT2          = irFFT0.drop         (convSizeFFT)
+      val audioIn         = AudioFileIn(file = fAudioIn, numChannels = 2)
+
+      Length(audioIn).poll(0, "audioIn.length")
+
+      val inputFFT        = Real1FFT(audioIn, size = inputSz, padding = convSizeFFT - inputSz)
+
+      Length(inputFFT).poll(0, "inputFFT.length")
+
+      val irFFT1Rep       = RepeatWindow(irFFT1, size = convSizeFFT, num = irSteps)
+      val irFFT2Rep       = RepeatWindow(irFFT2, size = convSizeFFT, num = irSteps)
+      val irFFTFadeW0     = (ArithmSeq(start = 0, step = 1) % irSteps) / irSteps
+      val irFFTFadeW      = RepeatWindow(irFFTFadeW0, num = convSizeFFT)
+      val irFFTFade       = irFFT1Rep * (-irFFTFadeW + (1.0: GE)) + irFFT2Rep * irFFTFadeW
+
+      Length(irFFTFade).poll(0, "irFFTFade.length")
+
+      val audioConvFFT    = irFFTFade.complex * inputFFT
+      val audioConv       = Real1IFFT(audioConvFFT, size = convSizeTime, padding = convSizeFFT - convSizeTime)
+      val audioConvLap    = OverlapAdd(audioConv, size = convSizeTime, step = inputSz)
+
+      val specAudioOut = AudioFileSpec(numChannels = 4, sampleRate = sampleRate)
+      AudioFileOut(in = audioConvLap, file = fAudioOut, spec = specAudioOut)
     }
 
     val cfg = stream.Control.Config()
