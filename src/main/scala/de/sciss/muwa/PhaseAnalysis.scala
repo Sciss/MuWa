@@ -13,94 +13,22 @@
 
 package de.sciss.muwa
 
-import de.sciss.file._
 import de.sciss.fscape.{GE, Graph, graph, stream}
 import de.sciss.numbers.Implicits._
 import de.sciss.synth.io.AudioFileSpec
 
-import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 
 object PhaseAnalysis {
-  case class Config(
-                     fVideoIn     : File,
-                     tempImageOut : File,
-                     fAudioOut    : File,
-                     fAudioIn     : File,
-                     width        : Int     = 960,
-                     height       : Int     = 540,
-                     numFrames    : Int     = 10,
-                     irDur        : Double  = 0.5,
-                     inputStepDur : Double  = 0.02,
-                     irSteps      : Int     = 1, // 25,
-                     sampleRate   : Double  = 48000.0,
-                     gain         : Double  = 12.dbAmp
-                   )
-
   def main(args: Array[String]): Unit = {
-    val workLaptop  = file("/data/temp")
-    val isLaptop    = workLaptop.isDirectory
-    val videoDir    = if (isLaptop) workLaptop else userHome / "Videos"
-    val imageDir    = if (isLaptop) workLaptop else userHome / "Pictures"
-    val soundDir    = if (isLaptop) workLaptop else userHome / "Music"
-
-    val default = Config(
-      fVideoIn      = videoDir / "bla3.h264",
-      tempImageOut  = imageDir / "bla-%d.jpg",
-      fAudioOut     = soundDir / "test.aif",
-      fAudioIn      = soundDir / "rain-testCut.aif"
-    )
-
-    val p = new scopt.OptionParser[Config]("Read Video Test") {
-      opt[File]('i', "video-input")
-        .text("Input video file")
-        .action { (f, c) => c.copy(fVideoIn = f) }
-
-      opt[File]('o', "output")
-        .text("Output jpg template - use %d as frame number place holder")
-        .action { (f, c) => c.copy(tempImageOut = f) }
-
-      opt[File]("audio-input")
-        .text("Input audio file")
-        .action { (f, c) => c.copy(fAudioIn = f) }
-
-      opt[File]("audio-output")
-        .text("Output audio file")
-        .action { (f, c) => c.copy(fAudioOut = f) }
-
-      opt[Int]('w', "width")
-        .text("Video/image width in pixels")
-        .action { (v, c) => c.copy(width = v) }
-
-      opt[Int]('h', "height")
-        .text("Video/image height in pixels")
-        .action { (v, c) => c.copy(height = v) }
-
-      opt[Int]('n', "num-frames")
-        .text("Number of frames to render")
-        .action { (v, c) => c.copy(numFrames = v) }
-
-      opt[Double]('p', "impulse-len")
-        .text(s"Length of impulses for convolution in seconds (default: ${default.irDur})")
-        .action { (v, c) => c.copy(irDur = v) }
-
-      opt[Double]('l', "input-len")
-        .text(s"Length of input chunks for convolution in seconds (default: ${default.inputStepDur})")
-        .action { (v, c) => c.copy(inputStepDur = v) }
-
-      opt[Int]('s', "impulse-step")
-        .text(s"Interpolation steps for convolution of adjacent impulses (default: ${default.irSteps})")
-        .action { (v, c) => c.copy(irSteps = v) }
-
-      opt[Double]('g', "gain")
-        .text(s"Gain in decibels (default: ${default.gain.ampDb} dB)")
-        .action { (v, c) => c.copy(gain = v.dbAmp) }
-
-    }
-    p.parse(args, default).fold(sys.exit(1)) { implicit config =>
+    val opt = Config.parse(args, name = "PhaseAnalysis")
+    opt.fold(sys.exit(1)) { implicit config =>
       val t0 = System.currentTimeMillis()
-      run()
+      val fut = run()
+      Await.result(fut, Duration.Inf)
       val t1 = System.currentTimeMillis()
+      println("Ok.")
       println(s"Took ${(t1 - t0)/1000} seconds.")
       sys.exit()
     }
@@ -108,7 +36,7 @@ object PhaseAnalysis {
 
   def any2stringadd: Any = ()
 
-  def run()(implicit config: Config): Unit = {
+  def run()(implicit config: Config): Future[Unit] = {
     import config._
     import graph._
 
@@ -173,14 +101,15 @@ object PhaseAnalysis {
         phaseB - phaseA
       }
 
-//      val phaseDiffI = (phaseDiff * 2).clip2(1.0) * 0.5 + (0.5: GE)
-//      val left      = ResizeWindow(phaseDiffI, size = fftSize, stop = fftSize)
-//      val right     = ResizeWindow(BufferDisk(crop).drop(frameSize), size = fftSize, start = -fftSize)
-//      val composite = left + right
-//
-//      val specImageOut = ImageFile.Spec(width = fftSize * 2, height = fftSize, numChannels = 1,
-//        fileType = ImageFile.Type.JPG, sampleFormat = ImageFile.SampleFormat.Int8)
-//      ImageFileSeqOut(in = composite, template = tempImageOut, spec = specImageOut, indices = ArithmSeq(1, length = numFrames))
+      tempImageOut.foreach { temp =>
+        val phaseDiffI = (phaseDiff * 2).clip2(1.0) * 0.5 + (0.5: GE)
+        val left      = ResizeWindow(phaseDiffI, size = fftSize, stop = fftSize)
+        val right     = ResizeWindow(BufferDisk(crop).drop(frameSize), size = fftSize, start = -fftSize)
+        val composite = left + right
+        val specImageOut = ImageFile.Spec(width = fftSize * 2, height = fftSize, numChannels = 1,
+          fileType = ImageFile.Type.JPG, sampleFormat = ImageFile.SampleFormat.Int8)
+        ImageFileSeqOut(in = composite, template = temp, spec = specImageOut, indices = ArithmSeq(1, length = numFrames))
+      }
 
 //      def mkAudioSig1(in: GE): GE = {
 //        val hw  = in * GenWindow(size = fftSizeH, shape = GenWindow.Hann)
@@ -291,8 +220,7 @@ object PhaseAnalysis {
 
     ctrl.run(gr)
     println("Running...")
-    Await.result(ctrl.status, Duration.Inf)
-    println("Ok.")
+    ctrl.status
 //    sys.exit()
   }
 }

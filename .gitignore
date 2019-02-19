@@ -5,5 +5,4 @@ project/boot/
 .idea/
 .idea_modules/
 *.app
-dependency-graph.sbt
-Mellite.jar
+muwa.jar

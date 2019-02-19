@@ -20,13 +20,13 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object VideoFileInTest {
-  case class Config(fIn: File = file("in.264"), tempOut: File = file("out-%d.jpg"),
-                    width: Int = 0, height: Int = 0, numFrames: Int = 0)
+  case class VideoFileInConfig(fIn: File = file("in.264"), tempOut: File = file("out-%d.jpg"),
+                               width: Int = 0, height: Int = 0, numFrames: Int = 0)
 
   def main(args: Array[String]): Unit = {
-    val default = Config()
+    val default = VideoFileInConfig()
 
-    val p = new scopt.OptionParser[Config]("Read Video Test") {
+    val p = new scopt.OptionParser[VideoFileInConfig]("Read Video Test") {
       opt[File]('i', "input")
         .text("Input video file")
         .required()
@@ -57,7 +57,7 @@ object VideoFileInTest {
     }
   }
 
-  def run()(implicit config: Config): Unit = {
+  def run()(implicit config: VideoFileInConfig): Unit = {
     import config._
 
 //    val width   = 960
