@@ -92,6 +92,7 @@ object Main {
     sCfg.transport          = if (config.soundUseTCP) osc.TCP else osc.UDP
     sCfg.inputBusChannels   = 0
     sCfg.outputBusChannels  = 4
+    sCfg.memorySize         = 16384 // 32768
     sCfg.deviceName         = Some(config.jackClientName)
     val p = Promise[Server]()
     SServer.boot(config = sCfg) {
