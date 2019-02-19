@@ -126,9 +126,9 @@ object Config {
         .text(s"Remote OSC port, on IP 192.168.0.77 (default: ${default.controlOscPort})")
         .action { (v, c) => c.copy(controlOscPort = v) }
 
-      opt[Unit]("dump-osc")
-        .text("Dump OSC messages")
-        .action { (_, c) => c.copy(dumpOSC = true) }
+      opt[Unit]("no-dump-osc")
+        .text("Do not dump OSC messages")
+        .action { (_, c) => c.copy(dumpOSC = false) }
     }
     p.parse(args, default)
   }
@@ -142,12 +142,12 @@ case class Config(
                    tempImageOut   : Option[File]  = None,
                    width          : Int           = 960,
                    height         : Int           = 540,
-                   numFrames      : Int           = 9,
+                   numFrames      : Int           = 10,
                    irDur          : Double        = 0.4,
                    inputStepDur   : Double        = 0.04,
-                   irSteps        : Int           = 11, // 25,
+                   irSteps        : Int           = 9, // 25,
                    sampleRate     : Double        = 48000.0,
-                   gain           : Double        = 24.dbAmp,
+                   gain           : Double        = 30.dbAmp,
                    videoDur       : Double        = 64.0,
                    videoFPS       : Int           = 4,
                    videoSkip      : Int           = 16,
@@ -158,7 +158,7 @@ case class Config(
                    masterAmp      : Double        = 0.dbAmp,
                    localOscPort   : Int           = 18979,
                    controlOscPort : Int           = 18980,
-                   dumpOSC        : Boolean       = false
+                   dumpOSC        : Boolean       = true
                  )
 
 

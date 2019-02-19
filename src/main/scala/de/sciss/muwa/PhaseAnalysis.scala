@@ -26,7 +26,8 @@ object PhaseAnalysis {
   def mkFScapeConfig()(implicit config: Config): FScapeConfig = {
     val res = stream.Control.Config()
     //    cfg.blockSize  = fftSize
-    res.useAsync   = false // for debugging
+    res.terminateActors = false
+    res.useAsync        = false // for debugging
     res
   }
 

@@ -21,8 +21,10 @@ lazy val commonSettings = Seq(
   )
 )
 
+lazy val muwaMain: Option[String] = Some("de.sciss.muwa.Main")
+
 lazy val assemblySettings = Seq(
-  mainClass       in assembly := Some("de.sciss.muwa.Main"),
+  mainClass       in assembly := muwaMain,
   assemblyJarName in assembly := "muwa.jar",
   target          in assembly := baseDirectory.value
 )
@@ -42,3 +44,6 @@ lazy val root = project.in(file("."))
   .settings(commonSettings)
   .settings(assemblySettings)
   .settings(buildInfoSettings)
+  .settings(
+    mainClass in run := muwaMain
+  )

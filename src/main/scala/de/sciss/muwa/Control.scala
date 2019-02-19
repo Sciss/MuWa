@@ -13,7 +13,7 @@
 
 package de.sciss.muwa
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 import de.sciss.osc
 import de.sciss.osc.Implicits._
@@ -54,12 +54,14 @@ object Control {
     }
 
     def init(): Unit = {
-      val cfg       = osc.UDP.Config()
-      cfg.localPort = config.localOscPort
-      val t         = osc.UDP.Transmitter(cfg)
+      val cfg           = osc.UDP.Config()
+      cfg.localPort     = config.localOscPort
+      val localSuffix   = if (config.isLaptop) "77" else "31"
+      cfg.localAddress  = InetAddress.getByName(s"192.168.0.$localSuffix")
+      val t             = osc.UDP.Transmitter(cfg)
       t.connect()
-      val r         = osc.UDP.Receiver(t.channel, cfg)
-      r.action      = {
+      val r             = osc.UDP.Receiver(t.channel, cfg)
+      r.action          = {
         case (p: osc.Message, _) => received(p)
         case _ =>
       }

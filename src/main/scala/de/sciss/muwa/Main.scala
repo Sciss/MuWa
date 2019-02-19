@@ -79,6 +79,7 @@ object Main {
     }
     val (keep, remove1) = keep0.splitAt(config.soundPoolSz)
     val remove = remove0 ++ remove1
+    println(s"Initial sound pool: keeping ${keep.size}, removing ${remove.size}")
     remove.foreach(_.delete())
     keep
   }
