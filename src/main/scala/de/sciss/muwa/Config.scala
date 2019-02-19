@@ -13,6 +13,8 @@
 
 package de.sciss.muwa
 
+import java.net.InetAddress
+
 import de.sciss.file._
 import de.sciss.numbers.Implicits._
 
@@ -143,6 +145,24 @@ object Config {
     }
     p.parse(args, default)
   }
+
+  def thisIP(): String = {
+    import sys.process._
+    // cf. https://unix.stackexchange.com/questions/384135/
+    val ifConfig    = Seq("ip", "a", "show", "eth0").!!
+    val ifConfigPat = "inet "
+    val line        = ifConfig.split("\n").map(_.trim).find(_.startsWith(ifConfigPat)).getOrElse("")
+    val i0          = line.indexOf(ifConfigPat)
+    val i1          = if (i0 < 0) 0 else i0 + ifConfigPat.length
+    val i2          = line.indexOf("/", i1)
+    if (i0 < 0 || i2 < 0) {
+      val local = InetAddress.getLocalHost.getHostAddress
+      Console.err.println(s"No assigned IP4 found in eth0! Falling back to $local")
+      local
+    } else {
+      line.substring(i1, i2)
+    }
+  }
 }
 case class Config(
                    fVideoIn       : File,
@@ -173,5 +193,3 @@ case class Config(
                    dumpOSC        : Boolean       = true,
                    isJessie       : Boolean       = false,
                  )
-
-

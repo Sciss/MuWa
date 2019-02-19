@@ -20,8 +20,10 @@ import de.sciss.lucre.stm.TxnLike
 import de.sciss.lucre.stm.TxnLike.peer
 import de.sciss.lucre.synth.{Buffer, InMemory, Server, Synth}
 import de.sciss.synth.UGenSource.Vec
+import de.sciss.synth.{Server => SServer}
 import de.sciss.synth.{ControlSet, SynthGraph, addAfter, addToHead, freeSelf}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.stm.Ref
 
 /*
@@ -32,11 +34,10 @@ import scala.concurrent.stm.Ref
 object SoundPlayer {
   type S = Main.S
 
-  def run(pool0: Vec[File])(implicit s: Server, config: Config, system: S, tx: S#Tx): SoundPlayer = {
+  def run(pool0: Vec[File])(implicit config: Config, system: S, tx: S#Tx): SoundPlayer = {
     val soundIntervalMs   = (config.soundInterval * 1000).toLong
     val soundTimer        = new Timer("sound", false)
-    val master            = mkMaster()
-    val task              = new Task(master, pool0)
+    val task              = new Task(pool0)
 
     tx.afterCommit {
       soundTimer.schedule(task, soundIntervalMs, soundIntervalMs)
@@ -59,24 +60,47 @@ object SoundPlayer {
 
   private class Playing(val f: File, val syn: Synth)
 
-  private class Task(master: Synth, pool0: Vec[File])
-                    (implicit s: Server, config: Config, system: S) extends TimerTask with SoundPlayer {
+  private class Task(pool0: Vec[File])
+                    (implicit config: Config, system: S) extends TimerTask with SoundPlayer {
 
-    private val pool      = Ref(pool0)
-    private val playing   = Ref(Option.empty[Playing])
+    private[this] val pool      = Ref(pool0)
+    private[this] val playing   = Ref(Option.empty[Playing])
+    private[this] val server    = Ref(Option.empty[Server])
+    private[this] val master    = Ref(Option.empty[Synth])
+
+    def boot(): Unit = {
+      println("Booting scsynth...")
+      val futServer = Main.bootServer()
+      futServer.foreach { implicit s =>
+        system.step { implicit tx =>
+          server() = Some(s)
+          master() = Some(mkMaster())
+        }
+        s.peer.addListener {
+          case SServer.Offline =>
+            println("Woopa. scsynth terminated!")
+            system.step { implicit tx =>
+              if (server().contains(s)) {
+                server() = None
+              }
+            }
+        }
+        run()
+      }
+    }
 
     def run(): Unit = {
       println("Sound scheduled")
-      val found = system.step { implicit tx =>
+      val msg: Option[String] = system.step { implicit tx =>
         playing.swap(None).foreach { p =>
           pool.transform(p.f +: _)
           if (p.syn.isOnline) {
             p.syn.release(4)
           }
         }
-        pool() match {
-          case init :+ last =>
-            val p     = play(last)
+        (pool(), server()) match {
+          case (init :+ last, Some(s)) =>
+            val p     = play(last)(tx, s)
             pool()    = init
             playing() = Some(p)
             p.syn.onEndTxn { implicit tx =>
@@ -85,19 +109,24 @@ object SoundPlayer {
                 playing() = None
               }
             }
-            true
+            None
+
+          case (_, None) =>
+            tx.afterCommit(boot())
+            None
 
           case _ =>
-            false
+            Some("(No sound in pool)")
         }
       }
-      if (!found) println("(No sound in pool)")
+
+      msg.foreach(println)
     }
 
     def setMasterAmp(v: Double)(implicit tx: S#Tx): Unit =
-      master.set("amp" -> v)
+      master().foreach(_.set("amp" -> v))
 
-    private def play(f: File)(implicit tx: S#Tx): Playing = {
+    private def play(f: File)(implicit tx: S#Tx, s: Server): Playing = {
       val b   = Buffer.diskIn(s)(path = f.path, numChannels = 4)
       val gr = SynthGraph {
         import de.sciss.synth.Ops.stringToControl

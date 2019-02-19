@@ -16,11 +16,10 @@ package de.sciss.muwa
 import de.sciss.file._
 import de.sciss.lucre.synth.{InMemory, Server}
 import de.sciss.osc
-import de.sciss.synth.{ServerConnection, Server => SServer}
 import de.sciss.synth.UGenSource.Vec
 import de.sciss.synth.io.AudioFile
+import de.sciss.synth.{ServerConnection, Server => SServer}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -49,15 +48,15 @@ object Main {
       wipeTemp()
       val pool0 = drainSoundPool()
       val atmo0 = initAtmo()
-      val futServer = bootServer()
-      futServer.foreach { implicit s =>
+//      val futServer = bootServer()
+//      futServer.foreach { implicit s =>
         implicit val system: S = InMemory()
         system.step { implicit tx =>
           val player  = SoundPlayer   .run(pool0)
           val control = Control       .run(player)
           /* val capture = */ Capture .run(control, player, atmo0)
         }
-      }
+//      }
     }
   }
 

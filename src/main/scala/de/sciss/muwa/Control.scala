@@ -54,10 +54,12 @@ object Control {
     }
 
     def init(): Unit = {
+      val myIP          = Config.thisIP()
+      println(s"Starting OSC client for $myIP")
       val cfg           = osc.UDP.Config()
       cfg.localPort     = config.localOscPort
-      val localSuffix   = if (config.isLaptop) "77" else "31"
-      cfg.localAddress  = InetAddress.getByName(s"192.168.0.$localSuffix")
+//      val localSuffix   = if (config.isLaptop) "77" else "31"
+      cfg.localAddress  = InetAddress.getByName(myIP) // s"192.168.0.$localSuffix")
       val t             = osc.UDP.Transmitter(cfg)
       t.connect()
       val r             = osc.UDP.Receiver(t.channel, cfg)
