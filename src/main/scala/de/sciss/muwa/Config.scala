@@ -161,9 +161,9 @@ case class Config(
                    videoSkip      : Int           = 16,
                    isLaptop       : Boolean       = false,
                    jackClientName : String        = "MuWa",
-                   soundInterval  : Double        = 4 * 60.0 + 33.0,
+                   soundInterval  : Double        = (4 * 60.0 + 33.0)/2,
                    soundPoolSz    : Int           = 10,
-                   masterAmp      : Double        = 0.dbAmp,
+                   masterAmp      : Double        = 12.dbAmp,
                    localOscPort   : Int           = 18979,
                    controlOscPort : Int           = 18980,
                    dumpOSC        : Boolean       = true
