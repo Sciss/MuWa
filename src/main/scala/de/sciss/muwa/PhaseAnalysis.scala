@@ -98,7 +98,11 @@ object PhaseAnalysis {
 
     }
     p.parse(args, default).fold(sys.exit(1)) { implicit config =>
+      val t0 = System.currentTimeMillis()
       run()
+      val t1 = System.currentTimeMillis()
+      println(s"Took ${(t1 - t0)/1000} seconds.")
+      sys.exit()
     }
   }
 
@@ -289,6 +293,6 @@ object PhaseAnalysis {
     println("Running...")
     Await.result(ctrl.status, Duration.Inf)
     println("Ok.")
-    sys.exit()
+//    sys.exit()
   }
 }
