@@ -89,7 +89,7 @@ object Main {
 
   def bootServer()(implicit config: Config): Future[Server] = {
     val sCfg                = Server.Config()
-    sCfg.transport          = osc.TCP
+    sCfg.transport          = if (config.soundUseTCP) osc.TCP else osc.UDP
     sCfg.inputBusChannels   = 0
     sCfg.outputBusChannels  = 4
     sCfg.deviceName         = Some(config.jackClientName)

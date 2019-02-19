@@ -40,6 +40,7 @@ object SoundPlayer {
     val task              = new Task(pool0)
 
     tx.afterCommit {
+      task.run()
       soundTimer.schedule(task, soundIntervalMs, soundIntervalMs)
     }
     task

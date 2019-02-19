@@ -142,6 +142,10 @@ object Config {
       opt[Unit]("jessie")
         .text("Run Debian 8 compatible")
         .action { (_, c) => c.copy(isJessie = true) }
+
+      opt[Unit]("sound-tcp")
+        .text("Use TCP for sound server instead of UDP")
+        .action { (_, c) => c.copy(soundUseTCP = true) }
     }
     p.parse(args, default)
   }
@@ -186,10 +190,11 @@ case class Config(
                    isLaptop       : Boolean       = false,
                    jackClientName : String        = "MuWa",
                    soundInterval  : Double        = (4 * 60.0 + 33.0)/2,
-                   soundPoolSz    : Int           = 10,
+                   soundPoolSz    : Int           = 20,
                    masterAmp      : Double        = 12.dbAmp,
                    localOscPort   : Int           = 18979,
                    controlOscPort : Int           = 18980,
                    dumpOSC        : Boolean       = true,
                    isJessie       : Boolean       = false,
+                   soundUseTCP    : Boolean       = false,
                  )
