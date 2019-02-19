@@ -48,17 +48,21 @@ object Main {
       println(s"$name - $fullVersion")
       wipeTemp()
       val pool0 = drainSoundPool()
+      val atmo0 = initAtmo()
       val futServer = bootServer()
       futServer.foreach { implicit s =>
         implicit val system: S = InMemory()
         system.step { implicit tx =>
           val player  = SoundPlayer   .run(pool0)
           val control = Control       .run(player)
-          /* val capture = */ Capture .run(control, player)
+          /* val capture = */ Capture .run(control, player, atmo0)
         }
       }
     }
   }
+
+  def initAtmo()(implicit config: Config): Vec[File] =
+    config.fAtmoDir.children(_.ext == "aif")
 
   def mkTemp()(implicit config: Config): Unit =
     config.fTempDir.mkdirs()

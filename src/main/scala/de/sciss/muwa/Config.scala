@@ -22,14 +22,17 @@ object Config {
     val isLaptop    = workLaptop.isDirectory
     val videoDir    = if (isLaptop) workLaptop else userHome / "Videos"
     //    val imageDir    = if (isLaptop) workLaptop else userHome / "Pictures"
-    val soundDir    = if (isLaptop) workLaptop else userHome / "Music"
+    val musicDir    = if (isLaptop) workLaptop else userHome / "Music"
+    val poolDir     = musicDir / "muwa"
+    val atmoDir     = if (isLaptop) file("/data/projects/Almat/events/impuls2019/audio_work/atmo") else musicDir / "atmo"
 
     Config(
       fVideoIn      = videoDir / "bla3.h264",
       //      tempImageOut  = imageDir / "bla-%d.jpg",
-      fAudioOut     = soundDir / "test.aif",
-      fAudioIn      = soundDir / "rain-testCutRsmp.aif",
-      fSoundPoolDir = soundDir / "muwa",
+      fAudioOut     = musicDir / "test.aif",
+      fAudioIn      = atmoDir  / "rain-testCutRsmp.aif",
+      fSoundPoolDir = poolDir,
+      fAtmoDir      = atmoDir,
       isLaptop      = isLaptop
     )
   }
@@ -129,6 +132,10 @@ object Config {
       opt[Unit]("no-dump-osc")
         .text("Do not dump OSC messages")
         .action { (_, c) => c.copy(dumpOSC = false) }
+
+      opt[File]("atmo-dir")
+        .text(s"Sound atmo directory (default: ${default.fAtmoDir})")
+        .action { (f, c) => c.copy(fAtmoDir = f) }
     }
     p.parse(args, default)
   }
@@ -138,6 +145,7 @@ case class Config(
                    fAudioOut      : File,
                    fAudioIn       : File,
                    fSoundPoolDir  : File,
+                   fAtmoDir       : File,
                    fTempDir       : File          = file("/dev/shm/muwa"),
                    tempImageOut   : Option[File]  = None,
                    width          : Int           = 960,

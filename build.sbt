@@ -45,5 +45,5 @@ lazy val root = project.in(file("."))
   .settings(assemblySettings)
   .settings(buildInfoSettings)
   .settings(
-    mainClass in run := muwaMain
+    mainClass in (Compile, run) := muwaMain
   )

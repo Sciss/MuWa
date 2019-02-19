@@ -70,7 +70,9 @@ object SoundPlayer {
       val found = system.step { implicit tx =>
         playing.swap(None).foreach { p =>
           pool.transform(p.f +: _)
-          p.syn.release(4)
+          if (p.syn.isOnline) {
+            p.syn.release(4)
+          }
         }
         pool() match {
           case init :+ last =>
@@ -79,6 +81,9 @@ object SoundPlayer {
             playing() = Some(p)
             p.syn.onEndTxn { implicit tx =>
               addToPool(last, prepend = true)   // make it available again
+              if (playing().contains(p)) {
+                playing() = None
+              }
             }
             true
 
@@ -111,6 +116,9 @@ object SoundPlayer {
       syn.play(s.defaultGroup, args = args, addAction = addToHead, dependencies = b :: Nil)
       syn.onEndTxn { implicit tx =>
         b.dispose()
+        tx.afterCommit {
+          println("Stopped sound")
+        }
       }
       new Playing(f = f, syn = syn)
     }

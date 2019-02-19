@@ -17,6 +17,7 @@ import java.util.{Timer, TimerTask}
 
 import de.sciss.osc
 import de.sciss.file._
+import de.sciss.synth.UGenSource.Vec
 
 import scala.util.{Failure, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,8 +33,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Capture {
   type S = Main.S
 
-  def run(control: Control, player: SoundPlayer)(implicit config: Config, system: S, tx: S#Tx): Capture = {
-    val res = new Impl(control, player)
+  def run(control: Control, player: SoundPlayer, atmo: Vec[File])(implicit config: Config, system: S, tx: S#Tx): Capture = {
+    val res = new Impl(control, player, atmo)
 
     tx.afterCommit {
       res.iterate()
@@ -42,7 +43,7 @@ object Capture {
     res
   }
 
-  private class Impl(control: Control, player: SoundPlayer)(implicit config: Config, system: S)
+  private class Impl(control: Control, player: SoundPlayer, atmo: Vec[File])(implicit config: Config, system: S)
     extends Capture {
 
     private[this] val fscapeCfg = PhaseAnalysis.mkFScapeConfig()
@@ -70,7 +71,14 @@ object Capture {
       futVideo.onComplete {
         case Success(fVideo) =>
           val fAudioOut = File.createTempIn(config.fSoundPoolDir, prefix = "pool", suffix = ".aif", deleteOnExit = false)
-          val config1   = config.copy(fVideoIn = fVideo, fAudioOut = fAudioOut)
+          val atmoIdx   = util.Random.nextInt(atmo.size)
+          val fAtmo     = atmo(atmoIdx)
+          println(s"Atmo: ${fAtmo.name}")
+          val config1   = config.copy(
+            fVideoIn  = fVideo,
+            fAudioIn  = fAtmo,
+            fAudioOut = fAudioOut
+          )
           val futPhase  = PhaseAnalysis.run()(fscapeCfg, config1)
           futPhase.onComplete {
             case Success(_) =>
