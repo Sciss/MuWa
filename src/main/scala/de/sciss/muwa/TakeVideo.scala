@@ -54,12 +54,12 @@ object TakeVideo {
       val f       = File.createTempIn(parent = config.fTempDir, suffix = ".h264", deleteOnExit = !keep)
       val program = "raspivid"
       val args    = Seq[String](
-         "-w"   , config.width.toString,
+        "-w"    , config.width.toString,
         "-h"    , config.height.toString,
         "--ISO" , "400",
         "-ex"   , "beach",
         "-rot"  , "180",
-        "-fli"  , "off",
+//        "-fli"  , "off",
         "-awb"  , "sun",
         "-drc"  , "off",
         "-t"    , (config.videoDur * 1000).toInt.toString,

@@ -136,6 +136,10 @@ object Config {
       opt[File]("atmo-dir")
         .text(s"Sound atmo directory (default: ${default.fAtmoDir})")
         .action { (f, c) => c.copy(fAtmoDir = f) }
+
+      opt[Unit]("jessie")
+        .text("Run Debian 8 compatible")
+        .action { (_, c) => c.copy(isJessie = true) }
     }
     p.parse(args, default)
   }
@@ -166,7 +170,8 @@ case class Config(
                    masterAmp      : Double        = 12.dbAmp,
                    localOscPort   : Int           = 18979,
                    controlOscPort : Int           = 18980,
-                   dumpOSC        : Boolean       = true
+                   dumpOSC        : Boolean       = true,
+                   isJessie       : Boolean       = false,
                  )
 
 
