@@ -33,7 +33,8 @@ object PhaseAnalysis {
                      irDur        : Double  = 0.5,
                      inputStepDur : Double  = 0.02,
                      irSteps      : Int     = 1, // 25,
-                     sampleRate   : Double  = 48000.0
+                     sampleRate   : Double  = 48000.0,
+                     gain         : Double  = 12.dbAmp
                    )
 
   def main(args: Array[String]): Unit = {
@@ -51,13 +52,21 @@ object PhaseAnalysis {
     )
 
     val p = new scopt.OptionParser[Config]("Read Video Test") {
-      opt[File]('i', "input")
+      opt[File]('i', "video-input")
         .text("Input video file")
         .action { (f, c) => c.copy(fVideoIn = f) }
 
       opt[File]('o', "output")
         .text("Output jpg template - use %d as frame number place holder")
         .action { (f, c) => c.copy(tempImageOut = f) }
+
+      opt[File]("audio-input")
+        .text("Input audio file")
+        .action { (f, c) => c.copy(fAudioIn = f) }
+
+      opt[File]("audio-output")
+        .text("Output audio file")
+        .action { (f, c) => c.copy(fAudioOut = f) }
 
       opt[Int]('w', "width")
         .text("Video/image width in pixels")
@@ -82,6 +91,11 @@ object PhaseAnalysis {
       opt[Int]('s', "impulse-step")
         .text(s"Interpolation steps for convolution of adjacent impulses (default: ${default.irSteps})")
         .action { (v, c) => c.copy(irSteps = v) }
+
+      opt[Double]('g', "gain")
+        .text(s"Gain in decibels (default: ${default.gain.ampDb} dB)")
+        .action { (v, c) => c.copy(gain = v.dbAmp) }
+
     }
     p.parse(args, default).fold(sys.exit(1)) { implicit config =>
       run()
@@ -134,12 +148,12 @@ object PhaseAnalysis {
       val fftB      = Real2FullFFT(seqB, rows = fftSize, columns = fftSize)
 
       val conjA     = fftA .complex.conj  // A is to be shift against B!
-      val conv      = conjA.complex * fftB
+//      val conv      = conjA.complex * fftB
+      val conv      = fftB.complex * conjA
       val convMagR  = conv .complex.mag.max(1.0e-06).reciprocal
       val convBuf   = BufferMemory(conv, size = frameSize)
       val elemNorm  = convBuf * RepeatWindow(convMagR)
       val iFFT0     = Real2FullIFFT(in = elemNorm, rows = fftSize, columns = fftSize)
-//      val iFFT      = (iFFT0 / (fftSize * 2)) + (0.5: GE)
       val iFFT      = iFFT0 / fftSize
 
 //      val specOut = ImageFile.Spec(width = fftSize, height = fftSize, numChannels = 1,
@@ -211,23 +225,28 @@ object PhaseAnalysis {
       val minPhaseLog2    = Complex1FFT(in = minPhaseCepF, size = irMinPhaseSz) * irMinPhaseSz
       val minPhaseFFTOut  = minPhaseLog2.complex.exp
 //      val audioSigMin0    = Real1FullIFFT(in = minPhaseFFTOut, size = irMinPhaseSz)
-      val audioSigMin     = Real1FullIFFT(in = minPhaseFFTOut, size = irFrames1, padding = irMinPhaseSz - irFrames1)
+//      val audioSigMin     = Real1FullIFFT(in = minPhaseFFTOut, size = irFrames1, padding = irMinPhaseSz - irFrames1)
+      val audioSigMin     = {
+        // XXX TODO IFFT - padding is broken?
+        val i = Real1FullIFFT(in = minPhaseFFTOut, size = irMinPhaseSz)
+        ResizeWindow(i, size = irMinPhaseSz, stop = -(irMinPhaseSz - irFrames1))
+      }
 //      val audioSigMin     = ResizeWindow(audioSigMin0, size = irMinPhaseSz, stop = -(irMinPhaseSz - irFrames1))
       val convSizeTime    = inputSz + irFrames1 - 1
       val convSizeFFT     = convSizeTime.nextPowerOfTwo
 
       println(s"irFrames $irFrames, irFrames1 $irFrames1, inputSz $inputSz, convSizeTime $convSizeTime, convSizeFFT $convSizeFFT")
 
-      Length(audioSigMin).poll(0, "audioSigMin.length")
+//      Length(audioSigMin).poll(0, "audioSigMin.length")
 
       val irFFT0          = Real1FFT(audioSigMin, size = irFrames1, padding = convSizeFFT - irFrames1)
       val audioIn         = AudioFileIn(file = fAudioIn, numChannels = 2)
 
-      Length(audioIn).poll(0, "audioIn.length")
+      Length(audioIn out 0).poll(0, "audioIn.length")
 
       val inputFFT        = Real1FFT(audioIn, size = inputSz, padding = convSizeFFT - inputSz)
 
-      Length(inputFFT).poll(0, "inputFFT.length")
+      Length(inputFFT out 0).poll(0, "inputFFT.length")
 
       val irFFTFade: GE = if (irSteps > 1) {
         val irFFT1          = BufferMemory(irFFT0, convSizeFFT)
@@ -242,14 +261,23 @@ object PhaseAnalysis {
         irFFT0
       }
 
-      Length(irFFTFade).poll(0, "irFFTFade.length")
+//      Length(irFFTFade).poll(0, "irFFTFade.length")
 
       val audioConvFFT    = irFFTFade.complex * inputFFT
-      val audioConv       = Real1IFFT(audioConvFFT, size = convSizeTime, padding = convSizeFFT - convSizeTime)
+//      val audioConv       = Real1IFFT(audioConvFFT, size = convSizeTime, padding = convSizeFFT - convSizeTime)
+      val audioConv       = {
+        // XXX TODO IFFT - padding is broken?
+        val i = Real1IFFT(audioConvFFT, size = convSizeFFT)
+        ResizeWindow(i, size = convSizeFFT, stop = -(convSizeFFT - convSizeTime))
+      }
+
+      Length(audioConv out 0).poll(0, "audioConv.length")
+
       val audioConvLap    = OverlapAdd(audioConv, size = convSizeTime, step = inputSz)
+      val hpf             = HPF(audioConvLap, freqN = 75.0 / sampleRate) * gain
 
       val specAudioOut = AudioFileSpec(numChannels = 4, sampleRate = sampleRate)
-      AudioFileOut(in = audioConvLap, file = fAudioOut, spec = specAudioOut)
+      AudioFileOut(in = hpf, file = fAudioOut, spec = specAudioOut)
     }
 
     val cfg = stream.Control.Config()
@@ -260,5 +288,7 @@ object PhaseAnalysis {
     ctrl.run(gr)
     println("Running...")
     Await.result(ctrl.status, Duration.Inf)
+    println("Ok.")
+    sys.exit()
   }
 }
