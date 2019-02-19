@@ -21,12 +21,22 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 object PhaseAnalysis {
+  type FScapeConfig = stream.Control.Config
+
+  def mkFScapeConfig()(implicit config: Config): FScapeConfig = {
+    val res = stream.Control.Config()
+    //    cfg.blockSize  = fftSize
+    res.useAsync   = false // for debugging
+    res
+  }
+
   def main(args: Array[String]): Unit = {
     val opt = Config.parse(args, name = "PhaseAnalysis")
     opt.fold(sys.exit(1)) { implicit config =>
       println(s"PhaseAnalysis ${Main.fullVersion}")
       val t0 = System.currentTimeMillis()
-      val fut = run()
+      implicit val fscapeCfg: FScapeConfig = mkFScapeConfig()
+      val fut = run(verbose = true)
       Await.result(fut, Duration.Inf)
       val t1 = System.currentTimeMillis()
       println("Ok.")
@@ -37,7 +47,8 @@ object PhaseAnalysis {
 
   def any2stringadd: Any = ()
 
-  def run()(implicit config: Config): Future[Unit] = {
+  def run(verbose: Boolean = false)
+         (implicit fscapeCfg: FScapeConfig, config: Config): Future[Unit] = {
     import config._
     import graph._
 
@@ -171,18 +182,24 @@ object PhaseAnalysis {
       val convSizeTime    = inputSz + irFrames1 - 1
       val convSizeFFT     = convSizeTime.nextPowerOfTwo
 
-      println(s"irFrames $irFrames, irFrames1 $irFrames1, inputSz $inputSz, convSizeTime $convSizeTime, convSizeFFT $convSizeFFT")
+      if (verbose) {
+        println(s"irFrames $irFrames, irFrames1 $irFrames1, inputSz $inputSz, convSizeTime $convSizeTime, convSizeFFT $convSizeFFT")
+      }
 
 //      Length(audioSigMin).poll(0, "audioSigMin.length")
 
       val irFFT0          = Real1FFT(audioSigMin, size = irFrames1, padding = convSizeFFT - irFrames1)
       val audioIn         = AudioFileIn(file = fAudioIn, numChannels = 2)
 
-      Length(audioIn out 0).poll(0, "audioIn.length")
+      if (verbose) {
+        Length(audioIn out 0).poll(0, "audioIn.length")
+      }
 
       val inputFFT        = Real1FFT(audioIn, size = inputSz, padding = convSizeFFT - inputSz)
 
-      Length(inputFFT out 0).poll(0, "inputFFT.length")
+      if (verbose) {
+        Length(inputFFT out 0).poll(0, "inputFFT.length")
+      }
 
       val irFFTFade: GE = if (irSteps > 1) {
         val irFFT1          = BufferMemory(irFFT0, convSizeFFT)
@@ -207,7 +224,9 @@ object PhaseAnalysis {
         ResizeWindow(i, size = convSizeFFT, stop = -(convSizeFFT - convSizeTime))
       }
 
-      Length(audioConv out 0).poll(0, "audioConv.length")
+      if (verbose) {
+        Length(audioConv out 0).poll(0, "audioConv.length")
+      }
 
       val audioConvLap    = OverlapAdd(audioConv, size = convSizeTime, step = inputSz)
       val hpf             = HPF(audioConvLap, freqN = 75.0 / sampleRate) * gain
@@ -216,13 +235,10 @@ object PhaseAnalysis {
       AudioFileOut(in = hpf, file = fAudioOut, spec = specAudioOut)
     }
 
-    val cfg = stream.Control.Config()
-//    cfg.blockSize  = fftSize
-    cfg.useAsync   = false // for debugging
-    val ctrl  = stream.Control(cfg)
+    val ctrl = stream.Control(fscapeCfg)
 
     ctrl.run(gr)
-    println("Running...")
+    println("Running phase analysis...")
     ctrl.status
 //    sys.exit()
   }

@@ -28,7 +28,8 @@ object Config {
       fVideoIn      = videoDir / "bla3.h264",
       //      tempImageOut  = imageDir / "bla-%d.jpg",
       fAudioOut     = soundDir / "test.aif",
-      fAudioIn      = soundDir / "rain-testCut.aif",
+      fAudioIn      = soundDir / "rain-testCutRsmp.aif",
+      fSoundPoolDir = soundDir / "muwa",
       isLaptop      = isLaptop
     )
   }
@@ -38,7 +39,7 @@ object Config {
 
     val p = new scopt.OptionParser[Config](name) {
       opt[File]('i', "video-input")
-        .text("Input video file")
+        .text("Input video file in phase analysis")
         .action { (f, c) => c.copy(fVideoIn = f) }
 
       opt[File]('o', "output")
@@ -50,7 +51,7 @@ object Config {
         .action { (f, c) => c.copy(fAudioIn = f) }
 
       opt[File]("audio-output")
-        .text("Output audio file")
+        .text("Output audio file in phase analysis")
         .action { (f, c) => c.copy(fAudioOut = f) }
 
       opt[Int]('w', "width")
@@ -96,6 +97,38 @@ object Config {
       opt[Int]("video-skip")
         .text(s"Video capture skip frames (default: ${default.videoSkip})")
         .action { (v, c) => c.copy(videoSkip = v) }
+
+      opt[Double]("video-dur")
+        .text(s"Video capture duration in seconds (default: ${default.videoDur})")
+        .action { (v, c) => c.copy(videoDur = v) }
+
+      opt[Double]("sound-interval")
+        .text(s"Sound playback interval in seconds (default: ${default.soundInterval})")
+        .action { (v, c) => c.copy(soundInterval = v) }
+
+      opt[File]("sound-pool")
+        .text(s"Sound pool directory (default: ${default.fSoundPoolDir})")
+        .action { (v, c) => c.copy(fSoundPoolDir = v) }
+
+      opt[Int]("sound-pool-num")
+        .text(s"Number of files in sound pool (default: ${default.soundPoolSz})")
+        .action { (v, c) => c.copy(soundPoolSz = v) }
+
+      opt[Double]("master-gain")
+        .text(s"Master gain in decibels (default: ${default.masterAmp.ampDb} dB)")
+        .action { (v, c) => c.copy(masterAmp = v.dbAmp) }
+
+      opt[Int]("local-osc-port")
+        .text(s"Raspberry Pi's OSC port (default: ${default.localOscPort})")
+        .action { (v, c) => c.copy(localOscPort = v) }
+
+      opt[Int]("control-osc-port")
+        .text(s"Remote OSC port, on IP 192.168.0.77 (default: ${default.controlOscPort})")
+        .action { (v, c) => c.copy(controlOscPort = v) }
+
+      opt[Unit]("dump-osc")
+        .text("Dump OSC messages")
+        .action { (_, c) => c.copy(dumpOSC = true) }
     }
     p.parse(args, default)
   }
@@ -104,11 +137,12 @@ case class Config(
                    fVideoIn       : File,
                    fAudioOut      : File,
                    fAudioIn       : File,
+                   fSoundPoolDir  : File,
                    fTempDir       : File          = file("/dev/shm/muwa"),
                    tempImageOut   : Option[File]  = None,
                    width          : Int           = 960,
                    height         : Int           = 540,
-                   numFrames      : Int           = 11,
+                   numFrames      : Int           = 9,
                    irDur          : Double        = 0.4,
                    inputStepDur   : Double        = 0.04,
                    irSteps        : Int           = 11, // 25,
@@ -119,6 +153,12 @@ case class Config(
                    videoSkip      : Int           = 16,
                    isLaptop       : Boolean       = false,
                    jackClientName : String        = "MuWa",
+                   soundInterval  : Double        = 4 * 60.0 + 33.0,
+                   soundPoolSz    : Int           = 10,
+                   masterAmp      : Double        = 0.dbAmp,
+                   localOscPort   : Int           = 18979,
+                   controlOscPort : Int           = 18980,
+                   dumpOSC        : Boolean       = false
                  )
 
 

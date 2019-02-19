@@ -10,9 +10,11 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "de.sciss"          %% "fileutil"       % "1.1.3",
     "de.sciss"          %% "fscape-core"    % "2.20.0",
-    "de.sciss"          %% "scalacollider"  % "1.28.0",
+//    "de.sciss"          %% "scalacollider"  % "1.28.0",
+    "de.sciss"          %% "lucresynth"     % "3.11.0",
     "de.sciss"          %% "swingplus"      % "0.4.0",
-    "com.github.scopt"  %% "scopt"          % "3.7.1"
+    "org.scala-stm"     %% "scala-stm"      % "0.9",
+    "com.github.scopt"  %% "scopt"          % "3.7.1",
   ),
   javaCppPresetLibs ++= Seq(
     "ffmpeg" -> "4.0.2"

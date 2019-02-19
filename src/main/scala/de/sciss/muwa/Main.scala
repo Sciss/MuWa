@@ -14,13 +14,20 @@
 package de.sciss.muwa
 
 import de.sciss.file._
+import de.sciss.lucre.synth.{InMemory, Server}
 import de.sciss.osc
-import de.sciss.synth.{Server, ServerConnection}
+import de.sciss.synth.{ServerConnection, Server => SServer}
+import de.sciss.synth.UGenSource.Vec
+import de.sciss.synth.io.AudioFile
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object Main {
+  type S = InMemory
+
   private def buildInfString(key: String): String = try {
     val clazz = Class.forName("de.sciss.muwa.BuildInfo")
     val m     = clazz.getMethod(key)
@@ -40,7 +47,16 @@ object Main {
     Config.parse(args).fold(sys.exit(1)) { implicit config =>
       println(s"$name - $fullVersion")
       wipeTemp()
+      val pool0 = drainSoundPool()
       val futServer = bootServer()
+      futServer.foreach { implicit s =>
+        implicit val system: S = InMemory()
+        system.step { implicit tx =>
+          val player  = SoundPlayer   .run(pool0)
+          val control = Control       .run(player)
+          /* val capture = */ Capture .run(control, player)
+        }
+      }
     }
   }
 
@@ -52,6 +68,21 @@ object Main {
     config.fTempDir.children.foreach(_.delete())
   }
 
+  def mkSoundPool()(implicit config: Config): Unit =
+    config.fSoundPoolDir.mkdirs()
+
+  def drainSoundPool()(implicit config: Config): Vec[File] = {
+    mkSoundPool()
+    val all = config.fSoundPoolDir.children
+    val (keep0, remove0) = all.partition { f =>
+      Try(AudioFile.readSpec(f)).toOption.exists(_.numFrames > 0)
+    }
+    val (keep, remove1) = keep0.splitAt(config.soundPoolSz)
+    val remove = remove0 ++ remove1
+    remove.foreach(_.delete())
+    keep
+  }
+
   def bootServer()(implicit config: Config): Future[Server] = {
     val sCfg                = Server.Config()
     sCfg.transport          = osc.TCP
@@ -59,9 +90,9 @@ object Main {
     sCfg.outputBusChannels  = 4
     sCfg.deviceName         = Some(config.jackClientName)
     val p = Promise[Server]()
-    Server.boot(config = sCfg) {
-      case ServerConnection.Running(s) =>
-        p.trySuccess(s)
+    SServer.boot(config = sCfg) {
+      case ServerConnection.Running(peer) =>
+        p.trySuccess(Server(peer))
     }
     p.future
   }
