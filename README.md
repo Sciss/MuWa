@@ -12,3 +12,7 @@ no warranties. To contact the author, send an email to `contact at sciss.de`.
 ## requirements / installation
 
 This project compiles against Scala 2.12 using sbt.
+
+## tests
+
+    sbt 'runMain --video-input /home/pi/Videos/bla.h264 --audio-output /home/pi/Music/bla-synth.aif -w 960 -h 540 -n 2000 -s 22'
