@@ -92,6 +92,10 @@ object Config {
       opt[Int]("video-fps")
         .text(s"Video capture frames per second (default: ${default.videoFPS})")
         .action { (v, c) => c.copy(videoFPS = v) }
+
+      opt[Int]("video-skip")
+        .text(s"Video capture skip frames (default: ${default.videoSkip})")
+        .action { (v, c) => c.copy(videoSkip = v) }
     }
     p.parse(args, default)
   }
@@ -110,8 +114,9 @@ case class Config(
                    irSteps        : Int           = 11, // 25,
                    sampleRate     : Double        = 48000.0,
                    gain           : Double        = 24.dbAmp,
-                   videoDur       : Double        = 60.0,
+                   videoDur       : Double        = 64.0,
                    videoFPS       : Int           = 4,
+                   videoSkip      : Int           = 16,
                    isLaptop       : Boolean       = false,
                    jackClientName : String        = "MuWa",
                  )

@@ -24,6 +24,7 @@ object PhaseAnalysis {
   def main(args: Array[String]): Unit = {
     val opt = Config.parse(args, name = "PhaseAnalysis")
     opt.fold(sys.exit(1)) { implicit config =>
+      println(s"PhaseAnalysis ${Main.fullVersion}")
       val t0 = System.currentTimeMillis()
       val fut = run()
       Await.result(fut, Duration.Inf)
@@ -41,7 +42,9 @@ object PhaseAnalysis {
     import graph._
 
     val gr = Graph {
-      val videoIn   = VideoFileIn(file = fVideoIn, numChannels = 3)
+      val videoIn0  = VideoFileIn(file = fVideoIn, numChannels = 3)
+      val videoIn   = if (videoSkip == 0) videoIn0 else videoIn0.drop(videoSkip * (width * height))
+
       val fftSize   = (math.min(width, height) / 2).nextPowerOfTwo
       val fftSizeH  = fftSize/2
 //      val fftSizeQ  = fftSizeH/2
