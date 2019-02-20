@@ -45,6 +45,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     Config.parse(args).fold(sys.exit(1)) { implicit config =>
       println(s"$name - $fullVersion")
+      cpuLimit()
       wipeTemp()
       val pool0 = drainSoundPool()
       val atmo0 = initAtmo()
@@ -86,6 +87,32 @@ object Main {
     remove.foreach(_.delete())
     keep
   }
+
+  def cpuLimit()(implicit config: Config): Unit =
+    if (config.cpuLimit > 0) {
+      // cf. https://stackoverflow.com/questions/35842/how-can-a-java-program-get-its-own-process-id
+      try {
+        val pid     = java.lang.Integer.parseInt(file("/proc/self").getCanonicalFile.name)
+        val pidS    = pid.toString
+        val limitS  = config.cpuLimit.toString
+        println(s"Setting CPU limit process $pidS to $limitS%")
+        val program = "cpulimit"
+        val args = Seq[String](
+          "-l", limitS,
+          "-p", pidS
+        )
+        import sys.process._
+        val p = Process(program, args)
+        val code = p.!
+        val msg = if (code == 0) "Done." else s"$program returned with code $code"
+        println(msg)
+
+      } catch {
+        case NonFatal(ex) =>
+          println("Could not set CPU limit:")
+          ex.printStackTrace()
+      }
+    }
 
   def bootServer()(implicit config: Config): Future[Server] = {
     val sCfg                = Server.Config()

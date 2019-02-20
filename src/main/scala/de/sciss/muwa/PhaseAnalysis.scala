@@ -35,6 +35,7 @@ object PhaseAnalysis {
     val opt = Config.parse(args, name = "PhaseAnalysis")
     opt.fold(sys.exit(1)) { implicit config =>
       println(s"PhaseAnalysis ${Main.fullVersion}")
+      Main.cpuLimit()
       val t0 = System.currentTimeMillis()
       implicit val fscapeCfg: FScapeConfig = mkFScapeConfig()
       val fut = run(verbose = true)

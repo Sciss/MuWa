@@ -146,6 +146,10 @@ object Config {
       opt[Unit]("sound-tcp")
         .text("Use TCP for sound server instead of UDP")
         .action { (_, c) => c.copy(soundUseTCP = true) }
+
+      opt[Int]("cpu-limit")
+        .text(s"Limit JVM CPU usage to percentage (default: ${default.cpuLimit})")
+        .action { (v, c) => c.copy(cpuLimit = v) }
     }
     p.parse(args, default)
   }
@@ -197,4 +201,5 @@ case class Config(
                    dumpOSC        : Boolean       = true,
                    isJessie       : Boolean       = false,
                    soundUseTCP    : Boolean       = false,
+                   cpuLimit       : Int           = -1
                  )
