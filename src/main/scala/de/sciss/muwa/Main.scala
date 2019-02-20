@@ -103,9 +103,10 @@ object Main {
         )
         import sys.process._
         val p = Process(program, args)
-        val code = p.!
-        val msg = if (code == 0) "Done." else s"$program returned with code $code"
-        println(msg)
+//        val code = p.!
+        p.run()
+//        val msg = if (code == 0) "Done." else s"$program returned with code $code"
+//        println(msg)
 
       } catch {
         case NonFatal(ex) =>
