@@ -6,3 +6,4 @@ project/boot/
 .idea_modules/
 *.app
 muwa.jar
+.bsp/
